@@ -1,0 +1,48 @@
+name: Build PX4 1.13.3 FMUv6C with RC Input
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Pixhawk 6C Mini
+    runs-on: ubuntu-22.04
+
+    container:
+      image: px4io/px4-dev-nuttx-focal:2023-06-26
+
+    steps:
+      - name: Clone official PX4 v1.13.3
+        run: |
+          git clone --recursive --branch v1.13.3             https://github.com/PX4/PX4-Autopilot.git PX4-Autopilot
+
+      - name: Enable RC Input Driver
+        working-directory: PX4-Autopilot
+        run: |
+          FILE=boards/px4/fmu-v6c/default.px4board
+
+          grep -q '^CONFIG_DRIVERS_RC_INPUT=y$' "$FILE" ||             echo 'CONFIG_DRIVERS_RC_INPUT=y' >> "$FILE"
+
+          echo "Checking RC Input configuration:"
+          grep 'CONFIG_DRIVERS_RC_INPUT' "$FILE"
+
+      - name: Build PX4 FMUv6C
+        working-directory: PX4-Autopilot
+        run: |
+          make px4_fmu-v6c_default
+
+      - name: Verify firmware
+        run: |
+          test -s PX4-Autopilot/build/px4_fmu-v6c_default/px4_fmu-v6c_default.px4
+          ls -lh PX4-Autopilot/build/px4_fmu-v6c_default/px4_fmu-v6c_default.px4
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: PX4-1.13.3-FMUv6C-RCINPUT
+          path: PX4-Autopilot/build/px4_fmu-v6c_default/px4_fmu-v6c_default.px4
+          if-no-files-found: error
+          retention-days: 7
